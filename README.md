@@ -1,7 +1,7 @@
 # MoneyLends - Aplikacja do Zarządzania Wspólnymi Wydatkami  
 
 ## 🌐 Host  
-Aplikacja dostępna jest pod adresem: [MoneyLends](https://money-lend.vercel.app/)  
+Aplikacja dostępna jest pod adresem: [MoneyLends](https://moneylends.vercel.app/)  
 
 ---
 
