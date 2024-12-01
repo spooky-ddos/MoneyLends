@@ -16,13 +16,15 @@ import {
   Person as PersonIcon, 
   AccountBalance as AccountBalanceIcon,
   ArrowForward as ArrowForwardIcon,
-  PersonAdd as PersonAddIcon
+  PersonAdd as PersonAddIcon,
+  GroupAdd as GroupAddIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import styles from './Dashboard.module.css';
 import { motion } from 'framer-motion';
+import GroupPayment from './GroupPayment';
 
 function LoadingState() {
   return (
@@ -49,6 +51,7 @@ function LoadingState() {
 function Dashboard() {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openGroupPayment, setOpenGroupPayment] = useState(false);
 
   useEffect(() => {
     const fetchPeople = async () => {
@@ -128,6 +131,20 @@ function Dashboard() {
           >
             Dodaj Pierwszą Osobę
           </Button>
+          <Button
+            variant="contained"
+            startIcon={<GroupAddIcon />}
+            onClick={() => setOpenGroupPayment(true)}
+            sx={{
+              ml: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)'
+              }
+            }}
+          >
+            Grupowa Płatność
+          </Button>
         </Paper>
       ) : (
         <Grid container spacing={3}>
@@ -203,6 +220,10 @@ function Dashboard() {
           ))}
         </Grid>
       )}
+      <GroupPayment 
+        open={openGroupPayment} 
+        onClose={() => setOpenGroupPayment(false)} 
+      />
     </Box>
   );
 }
