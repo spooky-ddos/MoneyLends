@@ -1,0 +1,21 @@
+.dashboardContainer {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tableContainer {
+  margin-top: 2rem;
+  border-radius: var(--border-radius) !important;
+  box-shadow: var(--box-shadow) !important;
+}
+
+.tableContainer td, 
+.tableContainer th {
+  padding: 1rem;
+}
+
+.tableContainer th {
+  background-color: #f8fafc;
+  font-weight: 600;
+} 
