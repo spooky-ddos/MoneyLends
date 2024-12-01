@@ -27,6 +27,7 @@ function GroupPayment({ open, onClose, onSuccess }) {
     description: '',
     date: new Date().toISOString().split('T')[0]
   });
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchPeople = async () => {
@@ -89,35 +90,57 @@ function GroupPayment({ open, onClose, onSuccess }) {
     }
   };
 
+  const filteredPeople = people
+    .filter(person => 
+      person.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          height: '80vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }
+      }}
+    >
       <DialogTitle>Grupowa Płatność</DialogTitle>
-      <DialogContent>
-        <TextField
-          label="Kwota"
-          type="number"
-          value={payment.amount}
-          onChange={(e) => setPayment({ ...payment, amount: e.target.value })}
-          fullWidth
-          margin="normal"
-        />
-        <TextField
-          label="Opis"
-          value={payment.description}
-          onChange={(e) => setPayment({ ...payment, description: e.target.value })}
-          fullWidth
-          margin="normal"
-        />
-        <TextField
-          label="Data"
-          type="date"
-          value={payment.date}
-          onChange={(e) => setPayment({ ...payment, date: e.target.value })}
-          fullWidth
-          margin="normal"
-        />
-        
-        <Box sx={{ mt: 2 }}>
+      <DialogContent sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden'  // Zapobiega scrollowaniu całego dialogu
+      }}>
+        <Box sx={{ flex: '0 0 auto' }}>  {/* Górna sekcja - stała */}
+          <TextField
+            label="Kwota"
+            type="number"
+            value={payment.amount}
+            onChange={(e) => setPayment({ ...payment, amount: e.target.value })}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Opis"
+            value={payment.description}
+            onChange={(e) => setPayment({ ...payment, description: e.target.value })}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Data"
+            type="date"
+            value={payment.date}
+            onChange={(e) => setPayment({ ...payment, date: e.target.value })}
+            fullWidth
+            margin="normal"
+          />
+          
           <FormControlLabel
             control={
               <Checkbox
@@ -127,18 +150,55 @@ function GroupPayment({ open, onClose, onSuccess }) {
             }
             label="Uwzględnij mnie w podziale"
           />
+
+          <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+            Wybierz osoby:
+          </Typography>
+
+          <TextField
+            fullWidth
+            size="small"
+            label="Szukaj osoby"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ mb: 2 }}
+          />
         </Box>
 
-        <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
-          Wybierz osoby:
-        </Typography>
-        <List>
-          {people.map((person) => (
+        <List sx={{
+          flex: '1 1 auto',
+          overflow: 'auto',
+          border: '1px solid rgba(0, 0, 0, 0.12)',
+          borderRadius: 1,
+          minHeight: { xs: '150px', sm: '200px' },
+          maxHeight: { xs: '200px', sm: '300px' },
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'rgba(0,0,0,0.1)',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+            },
+          },
+        }}>
+          {filteredPeople.map((person) => (
             <ListItem
               key={person.id}
               dense
               button
               onClick={() => handleTogglePerson(person.id)}
+              sx={{
+                borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+                '&:last-child': {
+                  borderBottom: 'none',
+                },
+              }}
             >
               <ListItemIcon>
                 <Checkbox
@@ -148,13 +208,16 @@ function GroupPayment({ open, onClose, onSuccess }) {
                   disableRipple
                 />
               </ListItemIcon>
-              <ListItemText primary={person.name} />
+              <ListItemText 
+                primary={person.name}
+                secondary={selectedPeople.includes(person.id) ? 'Wybrano' : null}
+              />
             </ListItem>
           ))}
         </List>
 
         {payment.amount && selectedPeople.length > 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'right' }}>
             Kwota na osobę: {new Intl.NumberFormat('pl-PL', {
               style: 'currency',
               currency: 'PLN'

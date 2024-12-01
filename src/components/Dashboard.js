@@ -10,7 +10,8 @@ import {
   Button,
   Avatar,
   Paper,
-  Skeleton
+  Skeleton,
+  TextField
 } from '@mui/material';
 import { 
   Person as PersonIcon, 
@@ -52,6 +53,7 @@ function Dashboard() {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openGroupPayment, setOpenGroupPayment] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchPeople = async () => {
@@ -76,6 +78,10 @@ function Dashboard() {
     return <LoadingState />;
   }
 
+  const filteredPeople = people.filter(person => 
+    person.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Box 
       component={motion.div}
@@ -88,19 +94,38 @@ function Dashboard() {
         overflow: 'hidden'
       }}
     >
-      <Typography 
-        variant="h4" 
-        component="h1" 
-        gutterBottom 
-        sx={{ 
-          mb: 4,
-          textAlign: { xs: 'center', sm: 'left' }
-        }}
-      >
-        Lista Osób
-      </Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 4,
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: 2
+      }}>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          sx={{ 
+            textAlign: { xs: 'center', sm: 'left' }
+          }}
+        >
+          Lista Osób
+        </Typography>
 
-      {people.length === 0 ? (
+        <TextField
+          size="small"
+          label="Szukaj osoby"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ 
+            width: { xs: '100%', sm: '300px' },
+            backgroundColor: 'white',
+            borderRadius: 1
+          }}
+        />
+      </Box>
+
+      {filteredPeople.length === 0 ? (
         <Paper
           component={motion.div}
           initial={{ scale: 0.9 }}
@@ -148,7 +173,7 @@ function Dashboard() {
         </Paper>
       ) : (
         <Grid container spacing={3}>
-          {people.map((person) => (
+          {filteredPeople.map((person) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={person.id}>
               <Card 
                 sx={{ 
