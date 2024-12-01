@@ -156,20 +156,6 @@ function Dashboard() {
           >
             Dodaj Pierwszą Osobę
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<GroupAddIcon />}
-            onClick={() => setOpenGroupPayment(true)}
-            sx={{
-              ml: 2,
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'scale(1.05)'
-              }
-            }}
-          >
-            Grupowa Płatność
-          </Button>
         </Paper>
       ) : (
         <Grid container spacing={3}>
