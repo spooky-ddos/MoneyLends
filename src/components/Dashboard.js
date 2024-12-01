@@ -58,7 +58,9 @@ function Dashboard() {
         await new Promise(resolve => setTimeout(resolve, 500));
         const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
         const peopleSnapshot = await getDocs(peopleCollection);
-        const peopleList = peopleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const peopleList = peopleSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
         setPeople(peopleList);
       } finally {
         setLoading(false);
@@ -92,7 +94,7 @@ function Dashboard() {
           textAlign: { xs: 'center', sm: 'left' }
         }}
       >
-        Lista Dłużników
+        Lista Osób
       </Typography>
 
       {people.length === 0 ? (
@@ -109,7 +111,7 @@ function Dashboard() {
           }}
         >
           <Typography variant="h6" gutterBottom color="text.secondary">
-            Nie masz jeszcze żadnych dłużników
+            Nie masz jeszcze żadnych osób
           </Typography>
           <Button
             component={Link}

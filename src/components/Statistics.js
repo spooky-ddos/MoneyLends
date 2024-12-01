@@ -374,7 +374,7 @@ function Statistics() {
                 zIndex: 1
               }}>
                 <Typography variant="body1">
-                  Liczba dłużników: {people.length}
+                  Liczba osób: {people.length}
                 </Typography>
                 <Typography variant="body1">
                   Całkowita kwota długów: {new Intl.NumberFormat('pl-PL', {
@@ -419,7 +419,7 @@ function Statistics() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Box>
                     <Typography variant="body1" sx={{ mb: 1 }}>
-                      Dłużnik: {getOldestUnpaidDebt(people).person}
+                      Osoba: {getOldestUnpaidDebt(people).person}
                     </Typography>
                     <Typography variant="body1" sx={{ mb: 1 }}>
                       Kwota: {new Intl.NumberFormat('pl-PL', {
@@ -489,7 +489,7 @@ function Statistics() {
                   color: sortOrder === 'desc' ? 'error.main' : 'success.main',
                   fontWeight: 'medium'
                 }}>
-                  Dłużnicy
+                  Osoby
                 </Typography>
                 <ToggleButtonGroup
                   value={sortOrder}
