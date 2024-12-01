@@ -6,6 +6,7 @@ import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import styles from './Login.module.css';
 import { motion } from 'framer-motion';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ function Login() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { showSnackbar } = useSnackbar();
 
   React.useEffect(() => {
     if (user) {
@@ -26,27 +28,28 @@ function Login() {
     
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      showSnackbar('Zalogowano pomyślnie', 'success');
       navigate('/');
     } catch (err) {
       console.error('Błąd logowania:', err);
       switch (err.code) {
         case 'auth/configuration-not-found':
-          setError('Błąd konfiguracji Firebase. Skontaktuj się z administratorem.');
+          showSnackbar('Błąd konfiguracji Firebase. Skontaktuj się z administratorem.', 'error');
           break;
         case 'auth/invalid-email':
-          setError('Nieprawidłowy adres email.');
+          showSnackbar('Nieprawidłowy adres email.', 'error');
           break;
         case 'auth/user-disabled':
-          setError('To konto zostało wyłączone.');
+          showSnackbar('To konto zostało wyłączone.', 'error');
           break;
         case 'auth/user-not-found':
-          setError('Nie znaleziono użytkownika o podanym adresie email.');
+          showSnackbar('Nie znaleziono użytkownika o podanym adresie email.', 'error');
           break;
         case 'auth/wrong-password':
-          setError('Nieprawidłowe hasło.');
+          showSnackbar('Nieprawidłowe hasło.', 'error');
           break;
         default:
-          setError('Wystąpił błąd podczas logowania. Spróbuj ponownie.');
+          showSnackbar('Wystąpił błąd podczas logowania. Spróbuj ponownie.', 'error');
       }
     }
   };
