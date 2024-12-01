@@ -234,7 +234,7 @@ function PersonDebts() {
       labels: data.map(d => d.date.toLocaleDateString('pl-PL')),
       datasets: [
         {
-          label: 'Saldo zadłużenia',
+          label: 'Dług',
           data: data.map(d => d.balance),
           borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
@@ -350,7 +350,7 @@ function PersonDebts() {
                 onClick={() => setOpenDebtDialog(true)}
                 size="small"
               >
-                Dodaj Dług
+                Dodaj Płatność
               </Button>
               <Button
                 variant="contained"
@@ -428,7 +428,7 @@ function PersonDebts() {
             }}
           >
             <ToggleButton value="all">Wszystko</ToggleButton>
-            <ToggleButton value="debts">Długi</ToggleButton>
+            <ToggleButton value="debts">Płatności</ToggleButton>
             <ToggleButton value="repayments">Spłaty</ToggleButton>
           </ToggleButtonGroup>
           <List sx={{ 
