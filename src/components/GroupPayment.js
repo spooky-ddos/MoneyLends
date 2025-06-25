@@ -19,7 +19,7 @@ import { db, auth } from '../firebase';
 import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 function GroupPayment({ open, onClose, onSuccess }) {
-  const [people, setPeople] = useState([]);
+  const [allPeople, setAllPeople] = useState([]);
   const [selectedPeople, setSelectedPeople] = useState([]);
   const [includeCreator, setIncludeCreator] = useState(true);
   const [payment, setPayment] = useState({
@@ -30,22 +30,24 @@ function GroupPayment({ open, onClose, onSuccess }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchPeople = async () => {
-      if (!auth.currentUser) return;
-      const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
-      const peopleSnapshot = await getDocs(peopleCollection);
-      const peopleList = peopleSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setPeople(peopleList);
-    };
+    if (open) {
+      const fetchPeople = async () => {
+        if (!auth.currentUser) return;
+        const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
+        const peopleSnapshot = await getDocs(peopleCollection);
+        const peopleList = peopleSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setAllPeople(peopleList);
+      };
 
-    fetchPeople();
-  }, []);
+      fetchPeople();
+    }
+  }, [open]);
 
   const handleTogglePerson = (personId) => {
-    setSelectedPeople(prev => 
+    setSelectedPeople(prev =>
       prev.includes(personId)
         ? prev.filter(id => id !== personId)
         : [...prev, personId]
@@ -56,8 +58,8 @@ function GroupPayment({ open, onClose, onSuccess }) {
     if (!auth.currentUser) return;
 
     const totalPeople = selectedPeople.length + (includeCreator ? 1 : 0);
-    if (totalPeople === 0) {
-      alert('Wybierz co najmniej jedną osobę');
+    if (totalPeople === 0 || !payment.amount) {
+      alert('Proszę wybrać przynajmniej jedną osobę i podać kwotę.');
       return;
     }
 
@@ -66,32 +68,35 @@ function GroupPayment({ open, onClose, onSuccess }) {
 
       for (const personId of selectedPeople) {
         const personRef = doc(db, 'users', auth.currentUser.uid, 'people', personId);
+        const personData = allPeople.find(p => p.id === personId);
+        if (!personData) continue;
+
         await updateDoc(personRef, {
-          totalDebt: people.find(p => p.id === personId).totalDebt + amountPerPerson,
+          totalDebt: (personData.totalDebt || 0) + amountPerPerson,
           transactions: arrayUnion({
             type: 'debt',
             amount: amountPerPerson,
             description: payment.description,
-            date: new Date(payment.date)
+            date: new Date(payment.date),
+            timestamp: new Date()
           })
         });
       }
 
       onSuccess?.();
       onClose();
-      setPayment({
-        amount: '',
-        description: '',
-        date: new Date().toISOString().split('T')[0]
-      });
+      setPayment({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
       setSelectedPeople([]);
+      setSearchQuery('');
+
     } catch (error) {
       console.error('Błąd podczas dodawania płatności grupowej:', error);
     }
   };
 
-  const filteredPeople = people
-    .filter(person => 
+  const filteredPeople = allPeople
+    .filter(person => !person.isSummary)
+    .filter(person =>
       person.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -114,9 +119,9 @@ function GroupPayment({ open, onClose, onSuccess }) {
         display: 'flex', 
         flexDirection: 'column',
         height: '100%',
-        overflow: 'hidden'  // Zapobiega scrollowaniu całego dialogu
+        overflow: 'hidden'
       }}>
-        <Box sx={{ flex: '0 0 auto' }}>  {/* Górna sekcja - stała */}
+        <Box sx={{ flex: '0 0 auto' }}>
           <TextField
             label="Kwota"
             type="number"
@@ -139,6 +144,7 @@ function GroupPayment({ open, onClose, onSuccess }) {
             onChange={(e) => setPayment({ ...payment, date: e.target.value })}
             fullWidth
             margin="normal"
+            InputLabelProps={{ shrink: true }}
           />
           
           <FormControlLabel
@@ -216,7 +222,7 @@ function GroupPayment({ open, onClose, onSuccess }) {
           ))}
         </List>
 
-        {payment.amount && selectedPeople.length > 0 && (
+        {payment.amount && (selectedPeople.length > 0 || includeCreator) && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'right' }}>
             Kwota na osobę: {new Intl.NumberFormat('pl-PL', {
               style: 'currency',

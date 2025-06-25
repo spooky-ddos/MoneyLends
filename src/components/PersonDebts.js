@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Dodajemy useCallback
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { db, auth } from '../firebase';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -20,15 +20,16 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  ToggleButtonGroup, // Dodano
-  ToggleButton,    // Dodano
+  ToggleButtonGroup,
+  ToggleButton,
   Grid,
-  Skeleton
+  Skeleton,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { Add as AddIcon, Payment as PaymentIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { Grow } from '@mui/material';
 import { motion } from 'framer-motion';
-// Dodano Bar
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -36,67 +37,67 @@ import {
   LinearScale,
   PointElement,
   LineElement,
-  BarElement, // Dodano BarElement
+  BarElement,
   Title,
   Tooltip,
   Legend
 } from 'chart.js';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
-// Dodano BarElement do rejestracji
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement, // Dodano
+  BarElement,
   Title,
   Tooltip,
   Legend
 );
 
 function LoadingState() {
-  return (
-    <Box
-      sx={{
-        maxWidth: '1400px',
-        width: { xs: '95%', sm: '100%' },
-        margin: '2rem auto',
-        padding: { xs: '0.5rem', sm: '2rem' }
-      }}
-    >
-      <Skeleton
-        variant="rounded"
-        height={200}
-        sx={{
-          mb: 3,
-          transform: 'none',
-          animation: 'pulse 1.5s ease-in-out 0.5s infinite'
-        }}
-      />
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+    return (
+        <Box
+          sx={{
+            maxWidth: '1400px',
+            width: { xs: '95%', sm: '100%' },
+            margin: '2rem auto',
+            padding: { xs: '0.5rem', sm: '2rem' }
+          }}
+        >
           <Skeleton
             variant="rounded"
-            height={400}
+            height={200}
             sx={{
+              mb: 3,
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
           />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Skeleton
-            variant="rounded"
-            height={400}
-            sx={{
-              transform: 'none',
-              animation: 'pulse 1.5s ease-in-out 0.5s infinite'
-            }}
-          />
-        </Grid>
-      </Grid>
-    </Box>
-  );
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Skeleton
+                variant="rounded"
+                height={400}
+                sx={{
+                  transform: 'none',
+                  animation: 'pulse 1.5s ease-in-out 0.5s infinite'
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Skeleton
+                variant="rounded"
+                height={400}
+                sx={{
+                  transform: 'none',
+                  animation: 'pulse 1.5s ease-in-out 0.5s infinite'
+                }}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+      );
 }
 
 function PersonDebts() {
@@ -105,51 +106,71 @@ function PersonDebts() {
   const [loading, setLoading] = useState(true);
   const [openDebtDialog, setOpenDebtDialog] = useState(false);
   const [openRepaymentDialog, setOpenRepaymentDialog] = useState(false);
-  const [viewMode, setViewMode] = useState('all'); // 'debts', 'repayments', 'all'
+  const [viewMode, setViewMode] = useState('all');
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const navigate = useNavigate();
-
-  // NOWY STAN: Do wyboru typu wykresu
-  const [chartViewMode, setChartViewMode] = useState('cumulative'); // 'cumulative' (łączny) lub 'monthly' (miesięczny)
+  const { showSnackbar } = useSnackbar();
+  const [chartViewMode, setChartViewMode] = useState('cumulative');
 
   const [newDebt, setNewDebt] = useState({
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0]
   });
-
   const [newRepayment, setNewRepayment] = useState({
     amount: '',
     method: 'Gotówka',
     date: new Date().toISOString().split('T')[0],
     description: ''
   });
-
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [openTransactionDeleteDialog, setOpenTransactionDeleteDialog] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const docRef = doc(db, 'users', auth.currentUser.uid, 'people', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setPerson({ id: docSnap.id, ...docSnap.data() });
-        }
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    try {
+      if (!auth.currentUser) return;
+      const docRef = doc(db, 'users', auth.currentUser.uid, 'people', id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() };
+        setPerson({ ...data, isSummary: !!data.isSummary });
       }
-    };
-    fetchData();
+    } catch (error) {
+        console.error("Błąd podczas pobierania danych:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleToggleIsSummary = async (event) => {
+    const newIsSummary = event.target.checked;
+    if (!person) return;
+
+    setPerson(prev => ({ ...prev, isSummary: newIsSummary }));
+
+    try {
+      const docRef = doc(db, 'users', auth.currentUser.uid, 'people', id);
+      await updateDoc(docRef, {
+        isSummary: newIsSummary
+      });
+      showSnackbar(`Pomyślnie zmieniono status na: ${newIsSummary ? 'Podliczenie' : 'Osoba'}`, 'success');
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji statusu:", error);
+      showSnackbar('Wystąpił błąd podczas zmiany statusu', 'error');
+      setPerson(prev => ({ ...prev, isSummary: !newIsSummary }));
+    }
+  };
 
   const handleAddDebt = async () => {
     const debtToAdd = {
       type: 'debt',
       ...newDebt,
       amount: parseFloat(newDebt.amount),
-      date: new Date(newDebt.date), // Firestore przechowa to jako Timestamp
+      date: new Date(newDebt.date),
       timestamp: new Date()
     };
 
@@ -162,7 +183,8 @@ function PersonDebts() {
     });
 
     setOpenDebtDialog(false);
-    refreshPersonData();
+    setNewDebt({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
+    fetchData();
   };
 
   const handleAddRepayment = async () => {
@@ -170,7 +192,7 @@ function PersonDebts() {
       type: 'repayment',
       ...newRepayment,
       amount: parseFloat(newRepayment.amount),
-      date: new Date(newRepayment.date), // Firestore przechowa to jako Timestamp
+      date: new Date(newRepayment.date),
       timestamp: new Date()
     };
 
@@ -183,17 +205,10 @@ function PersonDebts() {
     });
 
     setOpenRepaymentDialog(false);
-    refreshPersonData();
+    setNewRepayment({ amount: '', method: 'Gotówka', date: new Date().toISOString().split('T')[0], description: '' });
+    fetchData();
   };
-
-  const refreshPersonData = async () => {
-    const docRef = doc(db, 'users', auth.currentUser.uid, 'people', id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) { // Dodano sprawdzenie na wypadek usunięcia osoby w międzyczasie
-        setPerson({ id: docSnap.id, ...docSnap.data() });
-    }
-  };
-
+  
   const getFilteredTransactions = () => {
     if (!person?.transactions) return [];
     let transactions;
@@ -207,8 +222,10 @@ function PersonDebts() {
       default:
         transactions = person.transactions;
     }
-    // Sortowanie po dacie (od najnowszych) - oryginalna logika
-    return transactions.sort((a, b) => b.date.toDate() - a.date.toDate());
+    return transactions.sort((a, b) => {
+        if (!a.date || !b.date) return 0;
+        return b.date.toDate() - a.date.toDate();
+    });
   };
 
   const handleDelete = async () => {
@@ -220,18 +237,16 @@ function PersonDebts() {
     }
   };
 
-  // Oryginalna funkcja dla wykresu łącznego (teraz kumulacyjnego)
   const getCumulativeChartData = () => {
     if (!person?.transactions) return { labels: [], datasets: [] };
 
-    // Upewnij się, że transakcje są posortowane wg daty dla poprawnego salda
     const sortedTransactions = [...person.transactions].sort((a, b) =>
       a.date.toDate() - b.date.toDate()
     );
 
     let balance = 0;
     const data = sortedTransactions.map(t => {
-      const transactionDate = t.date.toDate(); // Konwersja Timestamp Firestore na obiekt Date
+      const transactionDate = t.date.toDate();
       balance += t.type === 'debt' ? t.amount : -t.amount;
       return {
         date: transactionDate,
@@ -243,7 +258,7 @@ function PersonDebts() {
       labels: data.map(d => d.date.toLocaleDateString('pl-PL')),
       datasets: [
         {
-          label: 'Dług (Łącznie)', // Zmieniono etykietę dla jasności
+          label: 'Dług (Łącznie)',
           data: data.map(d => d.balance),
           borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
@@ -251,20 +266,19 @@ function PersonDebts() {
       ]
     };
   };
-
-  // NOWA FUNKCJA: Dane dla wykresu miesięcznego (słupkowego)
+  
   const getMonthlyChartData = () => {
     if (!person?.transactions || person.transactions.length === 0) {
       return { labels: [], datasets: [] };
     }
 
-    const monthlyData = {}; // Klucz: 'RRRR-MM', Wartość: { debts: 0, repayments: 0, dateObject: Date }
+    const monthlyData = {};
 
     person.transactions.forEach(t => {
-      const date = t.date.toDate(); // Konwersja Timestamp Firestore na obiekt Date
+      const date = t.date.toDate();
       const year = date.getFullYear();
-      const month = date.getMonth(); // 0-indexed (Styczeń = 0)
-      const key = `${year}-${String(month + 1).padStart(2, '0')}`; // Format RRRR-MM
+      const month = date.getMonth();
+      const key = `${year}-${String(month + 1).padStart(2, '0')}`;
 
       if (!monthlyData[key]) {
         monthlyData[key] = { debts: 0, repayments: 0, dateObject: new Date(year, month, 1) };
@@ -277,7 +291,6 @@ function PersonDebts() {
       }
     });
 
-    // Sortowanie kluczy (miesięcy) chronologicznie
     const sortedMonthKeys = Object.keys(monthlyData).sort((a, b) => {
         return monthlyData[a].dateObject.getTime() - monthlyData[b].dateObject.getTime();
     });
@@ -292,14 +305,14 @@ function PersonDebts() {
         {
           label: 'Nowe zadłużenia (Miesięcznie)',
           data: sortedMonthKeys.map(key => monthlyData[key].debts),
-          backgroundColor: 'rgba(255, 99, 132, 0.5)', // Czerwony dla długów
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
           borderColor: 'rgb(255, 99, 132)',
           borderWidth: 1,
         },
         {
           label: 'Spłaty (Miesięcznie)',
           data: sortedMonthKeys.map(key => monthlyData[key].repayments),
-          backgroundColor: 'rgba(75, 192, 192, 0.5)', // Zielono-niebieski dla spłat
+          backgroundColor: 'rgba(75, 192, 192, 0.5)',
           borderColor: 'rgb(75, 192, 192)',
           borderWidth: 1,
         },
@@ -324,18 +337,17 @@ function PersonDebts() {
 
     setOpenTransactionDeleteDialog(false);
     setTransactionToDelete(null);
-    refreshPersonData();
+    fetchData();
   };
 
   if (loading) {
     return <LoadingState />;
   }
 
-  // Dodano sprawdzenie czy 'person' istnieje, aby uniknąć błędów przy renderowaniu
   if (!person) {
     return (
         <Box sx={{ maxWidth: '1400px', width: { xs: '95%', sm: '100%' }, margin: '2rem auto', padding: { xs: '0.5rem', sm: '2rem' } }}>
-            <Typography variant="h5" align="center">Ładowanie danych osoby lub osoba nie istnieje.</Typography>
+            <Typography variant="h5" align="center">Ładowanie danych lub pozycja nie istnieje.</Typography>
             <Button component={Link} to="/" variant="outlined" sx={{ mt: 2, display: 'block', margin: 'auto' }}>
                 ← Powrót do listy
             </Button>
@@ -355,46 +367,26 @@ function PersonDebts() {
         padding: { xs: '0.5rem', sm: '2rem' }
       }}
     >
-      {/* Sekcja 1: Nawigacja, akcje i podsumowanie - BEZ ZMIAN WIZUALNYCH (poza tym co konieczne dla person) */}
       <Paper elevation={3} sx={{
         padding: '2rem',
         mb: 3,
         backgroundColor: '#ffffff',
         color: 'rgb(30, 41, 59)',
         borderTop: 3,
-        borderColor: person.totalDebt > 0 ? 'error.main' : 'success.main',
+        borderColor: person.isSummary ? 'info.main' : (person.totalDebt > 0 ? 'error.main' : 'success.main'),
         position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '30%',
-          height: '100%',
-          background: `linear-gradient(90deg, transparent, ${
-            person.totalDebt > 0
-              ? 'rgba(211, 47, 47, 0.05)'
-              : 'rgba(76, 175, 80, 0.05)'
-          })`,
-          zIndex: 0
-        }
+        overflow: 'hidden'
       }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={4}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Button
-                component={Link}
-                to="/"
-                variant="outlined"
-                sx={{ minWidth: 'auto' }}
-              >
-                ← Powrót
+              <Button component={Link} to="/" variant="outlined" sx={{ minWidth: 'auto' }}>
+                ←
               </Button>
               <Typography variant="h5">{person.name}</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={4}>
             <Box sx={{
               display: 'flex',
               alignItems: 'center',
@@ -402,12 +394,11 @@ function PersonDebts() {
               p: 2,
               borderRadius: 1,
               border: 1,
-              borderColor: person.totalDebt > 0 ? 'error.main' : 'success.main',
-              color: person.totalDebt > 0 ? 'error.main' : 'success.main',
-              bgcolor: person.totalDebt > 0 ? 'error.50' : 'success.50' // MUI v5 style
+              borderColor: person.isSummary ? 'info.main' : (person.totalDebt > 0 ? 'error.main' : 'success.main'),
+              color: person.isSummary ? 'info.main' : (person.totalDebt > 0 ? 'error.main' : 'success.main'),
             }}>
               <Typography variant="subtitle1" fontWeight="medium">
-                Dług: {new Intl.NumberFormat('pl-PL', {
+                {person.isSummary ? "Suma wydatków" : "Dług"}: {new Intl.NumberFormat('pl-PL', {
                   style: 'currency',
                   currency: 'PLN'
                 }).format(person.totalDebt || 0)}
@@ -418,32 +409,28 @@ function PersonDebts() {
             <Box sx={{
               display: 'flex',
               gap: 1,
-              justifyContent: 'flex-end'
+              justifyContent: { xs: 'flex-start', md: 'flex-end' },
+              alignItems: 'center',
+              flexWrap: 'wrap'
             }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenDebtDialog(true)}
-                size="small"
-              >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={person.isSummary}
+                    onChange={handleToggleIsSummary}
+                    color="primary"
+                  />
+                }
+                label="Podliczenie"
+                sx={{ mr: 2 }}
+              />
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenDebtDialog(true)} size="small">
                 Dodaj Płatność
               </Button>
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<PaymentIcon />}
-                onClick={() => setOpenRepaymentDialog(true)}
-                size="small"
-              >
+              <Button variant="contained" color="success" startIcon={<PaymentIcon />} onClick={() => setOpenRepaymentDialog(true)} size="small">
                 Dodaj Spłatę
               </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setOpenDeleteDialog(true)}
-                size="small"
-              >
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setOpenDeleteDialog(true)} size="small">
                 Usuń
               </Button>
             </Box>
@@ -458,7 +445,6 @@ function PersonDebts() {
         width: '100%',
         alignItems: { xs: 'center', md: 'stretch' }
       }}>
-        {/* Lewa kolumna - Historia transakcji - BEZ ZMIAN WIZUALNYCH */}
         <Paper elevation={3} sx={{
           padding: { xs: '1rem', sm: '2rem' },
           width: { xs: '95%', md: '60%' },
@@ -493,9 +479,9 @@ function PersonDebts() {
           <ToggleButtonGroup
             value={viewMode}
             exclusive
-            onChange={(e, newValue) => { if (newValue !== null) setViewMode(newValue);}} // Zapobiega odznaczeniu wszystkiego
+            onChange={(e, newValue) => { if (newValue !== null) setViewMode(newValue);}}
             sx={{
-              mb: 3, // Oryginalny margines
+              mb: 3,
               flexWrap: 'wrap',
               '& .MuiToggleButton-root': {
                 padding: { xs: '6px 12px', sm: '8px 16px' },
@@ -510,14 +496,14 @@ function PersonDebts() {
           <List sx={{
             overflow: 'auto',
             flex: 1,
-            maxHeight: '350px', // Oryginalna wysokość
+            maxHeight: '350px',
             '&::-webkit-scrollbar': { width: '6px' },
             '&::-webkit-scrollbar-track': { backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px' },
             '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '4px', '&:hover': { backgroundColor: 'rgba(0,0,0,0.3)' } },
           }}>
             {getFilteredTransactions().map((transaction, index) => (
               <ListItem
-                key={index} // Oryginalny klucz
+                key={index}
                 sx={{
                   padding: { xs: '4px 8px', sm: '8px 16px' },
                   '& .MuiTypography-root': { fontSize: { xs: '0.875rem', sm: '1rem' } }
@@ -547,7 +533,6 @@ function PersonDebts() {
                       {transaction.type === 'repayment' && ` (${transaction.method})`}
                     </Typography>
                   }
-                  // Użycie .toDate() jest konieczne, bo 'date' z Firestore to Timestamp
                   secondary={`${transaction.description} - ${transaction.date.toDate().toLocaleDateString('pl-PL')}`}
                 />
               </ListItem>
@@ -555,7 +540,6 @@ function PersonDebts() {
           </List>
         </Paper>
 
-        {/* Prawa kolumna - wykres - Z MODYFIKACJAMI */}
         <Paper elevation={3} sx={{
           padding: { xs: '1rem', sm: '2rem' },
           width: { xs: '95%', md: '40%' },
@@ -588,18 +572,17 @@ function PersonDebts() {
             Historia zadłużenia
           </Typography>
 
-          {/* NOWY ELEMENT: Przełącznik typu wykresu */}
           <ToggleButtonGroup
             value={chartViewMode}
             exclusive
             onChange={(event, newViewMode) => {
-              if (newViewMode !== null) { // Zapobiega sytuacji, gdy nic nie jest wybrane
+              if (newViewMode !== null) {
                 setChartViewMode(newViewMode);
               }
             }}
             aria-label="Wybór typu wykresu"
             size="small"
-            sx={{ mb: 2, alignSelf: 'center' }} // Wyśrodkowanie przełącznika
+            sx={{ mb: 2, alignSelf: 'center' }}
           >
             <ToggleButton value="cumulative" aria-label="Łącznie">
               Łącznie
@@ -610,11 +593,10 @@ function PersonDebts() {
           </ToggleButtonGroup>
 
           <Box sx={{ flex: 1, position: 'relative', minHeight: 0 }}>
-            {/* Warunkowe renderowanie wykresu */}
             {chartViewMode === 'cumulative' ? (
               <Line
-                data={getCumulativeChartData()} // Używamy nowej nazwy funkcji dla danych kumulacyjnych
-                options={{ // Oryginalne opcje dla wykresu liniowego
+                data={getCumulativeChartData()}
+                options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: {
@@ -622,12 +604,12 @@ function PersonDebts() {
                     title: { display: false }
                   },
                   scales: {
-                    y: { /* beginAtZero: true, - dla salda może być ujemne, więc usunięto*/ ticks: { font: { size: window.innerWidth < 600 ? 10 : 12 } } },
+                    y: { ticks: { font: { size: window.innerWidth < 600 ? 10 : 12 } } },
                     x: { ticks: { font: { size: window.innerWidth < 600 ? 8 : 10 } } }
                   }
                 }}
               />
-            ) : ( // chartViewMode === 'monthly'
+            ) : (
               <Bar
                 data={getMonthlyChartData()}
                 options={{
@@ -640,7 +622,7 @@ function PersonDebts() {
                   scales: {
                     y: {
                       beginAtZero: true,
-                      stacked: false, // Słupki obok siebie
+                      stacked: false,
                       ticks: { font: { size: window.innerWidth < 600 ? 10 : 12 } }
                     },
                     x: {
@@ -655,7 +637,6 @@ function PersonDebts() {
         </Paper>
       </Box>
 
-      {/* Dialogi - BEZ ZMIAN WIZUALNYCH/FUNKCJONALNYCH (poza tym co konieczne dla person) */}
       <Dialog open={openDebtDialog} onClose={() => setOpenDebtDialog(false)}>
         <DialogTitle>Dodaj nowy dług</DialogTitle>
         <DialogContent>
@@ -681,7 +662,7 @@ function PersonDebts() {
             onChange={(e) => setNewDebt({ ...newDebt, date: e.target.value })}
             fullWidth
             margin="normal"
-            InputLabelProps={{ shrink: true }} // Utrzymane z oryginalnego kodu jeśli tam było
+            InputLabelProps={{ shrink: true }}
           />
         </DialogContent>
         <DialogActions>
@@ -740,7 +721,7 @@ function PersonDebts() {
             onChange={(e) => setNewRepayment({ ...newRepayment, date: e.target.value })}
             fullWidth
             margin="normal"
-            InputLabelProps={{ shrink: true }} // Utrzymane z oryginalnego kodu jeśli tam było
+            InputLabelProps={{ shrink: true }}
           />
         </DialogContent>
         <DialogActions>

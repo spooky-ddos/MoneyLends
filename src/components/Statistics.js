@@ -12,7 +12,9 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  PointElement,
+  LineElement as ChartJsLineElement,
 } from 'chart.js';
 
 ChartJS.register(
@@ -22,7 +24,9 @@ ChartJS.register(
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  PointElement,
+  ChartJsLineElement
 );
 
 function LoadingState() {
@@ -90,15 +94,14 @@ function Statistics() {
         await new Promise(resolve => setTimeout(resolve, 500));
         const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
         const peopleSnapshot = await getDocs(peopleCollection);
-        const peopleList = peopleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const peopleList = peopleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(person => !person.isSummary);
         
         setPeople(peopleList);
         
-        // Oblicz całkowity dług
         const total = peopleList.reduce((sum, person) => sum + (person.totalDebt || 0), 0);
         setTotalDebt(total);
         
-        // Oblicz ilość spłat dla każdej metody
         const paymentMethods = { cash: 0, bank: 0 };
         peopleList.forEach(person => {
           person.transactions?.forEach(transaction => {
@@ -131,28 +134,23 @@ function Statistics() {
     })
     .slice(0, 4);
 
-
   const calculateAverageRepaymentTime = (peopleList) => {
     const personAverages = [];
 
     peopleList.forEach(person => {
-      // Sortujemy transakcje chronologicznie
       const sortedTransactions = [...(person.transactions || [])].sort(
         (a, b) => a.date.toDate() - b.date.toDate()
       );
 
-      // Zbieramy wszystkie długi i spłaty
       const debts = sortedTransactions.filter(t => t.type === 'debt');
       let availableRepayments = [...sortedTransactions.filter(t => t.type === 'repayment')];
       let totalDays = 0;
       let fullyRepaidCount = 0;
 
-      // Przechodzimy przez długi chronologicznie
       for (const debt of debts) {
         let remainingDebt = debt.amount;
         let repaymentDates = [];
 
-        // Szukamy spłat dla tego długu
         while (remainingDebt > 0 && availableRepayments.length > 0) {
           const repayment = availableRepayments[0];
           const repaymentAmount = Math.min(remainingDebt, repayment.amount);
@@ -161,18 +159,15 @@ function Statistics() {
           repaymentDates.push(repayment.date.toDate());
           
           if (repaymentAmount < repayment.amount) {
-            // Częściowo wykorzystana spłata
             availableRepayments[0] = {
               ...repayment,
               amount: repayment.amount - repaymentAmount
             };
           } else {
-            // Spłata w całości wykorzystana
             availableRepayments.shift();
           }
         }
 
-        // Jeśli dług został w pełni spłacony
         if (remainingDebt === 0) {
           const lastRepaymentDate = new Date(Math.max(...repaymentDates));
           const diffTime = Math.abs(lastRepaymentDate - debt.date.toDate());
@@ -182,13 +177,11 @@ function Statistics() {
         }
       }
 
-      // Dodajemy średnią dla osoby tylko jeśli ma w pełni spłacone długi
       if (fullyRepaidCount > 0) {
         personAverages.push(totalDays / fullyRepaidCount);
       }
     });
 
-    // Obliczamy średnią ze wszystkich średnich osób
     return personAverages.length > 0 
       ? Math.round(personAverages.reduce((sum, avg) => sum + avg, 0) / personAverages.length)
       : 0;
@@ -199,30 +192,24 @@ function Statistics() {
     let oldestDebtPerson = null;
 
     peopleList.forEach(person => {
-      // Sortujemy transakcje chronologicznie
       const sortedTransactions = [...(person.transactions || [])].sort(
         (a, b) => a.date.toDate() - b.date.toDate()
       );
 
-      // Zbieramy wszystkie długi i spłaty osobno
       const debts = sortedTransactions.filter(t => t.type === 'debt');
       let totalRepayments = sortedTransactions
         .filter(t => t.type === 'repayment')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Przechodzimy przez długi chronologicznie
       for (const debt of debts) {
-        // Jeśli mamy dostępne spłaty, odejmujemy je od długu
         if (totalRepayments >= debt.amount) {
           totalRepayments -= debt.amount;
-          continue; // Ten dług jest w pełni spłacony, przechodzimy dalej
+          continue;
         }
 
-        // Jeśli dług jest częściowo lub wcale niespłacony
         const remainingDebt = debt.amount - totalRepayments;
-        totalRepayments = 0; // Wykorzystaliśmy wszystkie dostępne spłaty
+        totalRepayments = 0;
 
-        // Sprawdzamy czy to najstarszy niespłacony dług
         if (!oldestDebt || debt.date.toDate() < oldestDebt.date.toDate()) {
           oldestDebt = {
             ...debt,
@@ -244,7 +231,6 @@ function Statistics() {
   const getTotalDebtChartData = () => {
     if (!people.length) return { labels: [], datasets: [] };
 
-    // Zbierz wszystkie transakcje ze wszystkich osób
     const allTransactions = people.flatMap(person => 
       (person.transactions || []).map(t => ({
         ...t,
@@ -252,7 +238,6 @@ function Statistics() {
       }))
     );
 
-    // Sortuj po dacie
     const sortedTransactions = allTransactions.sort((a, b) => a.date - b.date);
 
     let balance = 0;
@@ -295,10 +280,8 @@ function Statistics() {
       </Typography>
 
       <Grid container spacing={4}>
-        {/* Pierwsza kolumna - Podsumowanie i Najstarszy dług */}
         <Grid item xs={12} md={6}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Podsumowanie */}
             <Paper elevation={3} sx={{ 
               p: 3, 
               backgroundColor: 'rgba(255,255,255,0.9)',
@@ -347,7 +330,6 @@ function Statistics() {
               </Box>
             </Paper>
 
-            {/* Najstarszy niespłacony dług */}
             <Paper elevation={3} sx={{ 
               p: 3, 
               backgroundColor: 'rgba(255,255,255,0.9)',
@@ -403,7 +385,6 @@ function Statistics() {
           </Box>
         </Grid>
 
-        {/* Druga kolumna - Lista dłużników */}
         <Grid item xs={12} md={6}>
           <Box sx={{ 
             display: 'flex', 
@@ -535,9 +516,7 @@ function Statistics() {
           </Box>
         </Grid>
 
-        {/* Wykresy */}
         <Grid item xs={12} container spacing={2}>
-          {/* Metody płatności */}
           <Grid item xs={12} md={6}>
             <Paper elevation={3} sx={{ 
               p: 3, 
@@ -590,6 +569,7 @@ function Statistics() {
                         callbacks: {
                           label: (context) => {
                             const total = paymentStats.cash + paymentStats.bank;
+                            if (total === 0) return `${context.label}: 0%`;
                             const percentage = ((context.raw / total) * 100).toFixed(1);
                             return `${context.label}: ${percentage}%`;
                           }
@@ -602,7 +582,6 @@ function Statistics() {
             </Paper>
           </Grid>
 
-          {/* Historia zadłużenia */}
           <Grid item xs={12} md={6}>
             <Paper elevation={3} sx={{ 
               p: 3, 
@@ -668,4 +647,4 @@ function Statistics() {
   );
 }
 
-export default Statistics; 
+export default Statistics;
