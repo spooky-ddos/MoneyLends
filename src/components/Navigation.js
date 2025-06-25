@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { AppBar, Toolbar, Button, IconButton, Typography, Box, Container, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { AppBar, Toolbar, Button, IconButton, Typography, Box, Container, Menu, MenuItem } from '@mui/material';
 import { ExitToApp as LogoutIcon, Brightness4, Brightness7, Menu as MenuIcon, Home as HomeIcon, BarChart as BarChartIcon, PersonAdd as PersonAddIcon, GroupAdd as GroupAddIcon, Settings as SettingsIcon } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth } from '../firebase';

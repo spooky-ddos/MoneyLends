@@ -6,7 +6,6 @@ import {
   Grid, 
   Typography, 
   Box, 
-  IconButton,
   Button,
   Avatar,
   Paper,
@@ -18,12 +17,10 @@ import {
   AccountBalance as AccountBalanceIcon,
   ArrowForward as ArrowForwardIcon,
   PersonAdd as PersonAddIcon,
-  GroupAdd as GroupAddIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import styles from './Dashboard.module.css';
 import { motion } from 'framer-motion';
 import GroupPayment from './GroupPayment';
 

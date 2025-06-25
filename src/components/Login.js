@@ -4,7 +4,6 @@ import { TextField, Button, Paper, Typography, Box, Alert } from '@mui/material'
 import { AuthContext } from '../contexts/AuthContext';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import styles from './Login.module.css';
 import { motion } from 'framer-motion';
 import { useSnackbar } from '../contexts/SnackbarContext';
 

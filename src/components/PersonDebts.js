@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { db, auth } from '../firebase';
-import { doc, getDoc, updateDoc, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import {
   TextField,
   Button,
@@ -22,7 +22,6 @@ import {
   InputLabel,
   ToggleButtonGroup, // Dodano
   ToggleButton,    // Dodano
-  Divider,
   Grid,
   Skeleton
 } from '@mui/material';

@@ -12,8 +12,6 @@ import {
   MenuItem,
   Box,
   Typography,
-  Alert,
-  Snackbar
 } from '@mui/material';
 import { auth } from '../firebase';
 import { deleteUser, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';

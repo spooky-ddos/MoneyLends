@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth } from '../firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { Box, Paper, Typography, Grid, ToggleButtonGroup, ToggleButton, Divider, Skeleton } from '@mui/material';
+import { Box, Paper, Typography, Grid, ToggleButtonGroup, ToggleButton, Skeleton } from '@mui/material';
 import { motion } from 'framer-motion';
-import { Bar, Pie, Line } from 'react-chartjs-2';
+import { Pie, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -131,15 +131,6 @@ function Statistics() {
     })
     .slice(0, 4);
 
-  const paymentMethodsData = {
-    labels: ['Gotówka', 'Konto'],
-    datasets: [{
-      data: [paymentStats.cash, paymentStats.bank],
-      backgroundColor: ['rgba(255, 206, 86, 0.8)', 'rgba(75, 192, 192, 0.8)'],
-      borderColor: ['rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)'],
-      borderWidth: 1,
-    }]
-  };
 
   const calculateAverageRepaymentTime = (peopleList) => {
     const personAverages = [];
@@ -248,38 +239,6 @@ function Statistics() {
       date: oldestDebt.date.toDate(),
       description: oldestDebt.description
     } : null;
-  };
-
-  const getMostPunctualDebtor = (peopleList) => {
-    const debtorStats = {};
-
-    peopleList.forEach(person => {
-      let totalDays = 0;
-      let repaymentCount = 0;
-
-      person.transactions?.forEach(transaction => {
-        if (transaction.type === 'repayment') {
-          const debtDate = transaction.debtDate?.toDate();
-          const repaymentDate = transaction.date?.toDate();
-          if (debtDate && repaymentDate) {
-            const diffTime = Math.abs(repaymentDate - debtDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            totalDays += diffDays;
-            repaymentCount++;
-          }
-        }
-      });
-
-      if (repaymentCount > 0) {
-        debtorStats[person.name] = {
-          averageDays: totalDays / repaymentCount,
-          repaymentCount
-        };
-      }
-    });
-
-    return Object.entries(debtorStats)
-      .sort(([, a], [, b]) => a.averageDays - b.averageDays)[0];
   };
 
   const getTotalDebtChartData = () => {
