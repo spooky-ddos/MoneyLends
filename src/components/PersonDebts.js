@@ -27,7 +27,7 @@ import {
   Switch,
   FormControlLabel
 } from '@mui/material';
-import { Add as AddIcon, Payment as PaymentIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Payment as PaymentIcon, Delete as DeleteIcon, CreditScore as CreditScoreIcon } from '@mui/icons-material';
 import { Grow } from '@mui/material';
 import { motion } from 'framer-motion';
 import { Line, Bar } from 'react-chartjs-2';
@@ -175,7 +175,7 @@ function PersonDebts() {
     };
 
     const updatedTransactions = [...(person.transactions || []), debtToAdd];
-    const newTotalDebt = (person.totalDebt || 0) + debtToAdd.amount;
+    const newTotalDebt = parseFloat(((person.totalDebt || 0) + debtToAdd.amount).toFixed(2));
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
       transactions: updatedTransactions,
@@ -197,7 +197,7 @@ function PersonDebts() {
     };
 
     const updatedTransactions = [...(person.transactions || []), repaymentToAdd];
-    const newTotalDebt = (person.totalDebt || 0) - repaymentToAdd.amount;
+    const newTotalDebt = parseFloat(((person.totalDebt || 0) - repaymentToAdd.amount).toFixed(2));
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
       transactions: updatedTransactions,
@@ -328,7 +328,7 @@ function PersonDebts() {
       ? -transactionToDelete.transaction.amount
       : transactionToDelete.transaction.amount;
 
-    const newTotalDebt = (person.totalDebt || 0) + amountChange;
+    const newTotalDebt = parseFloat(((person.totalDebt || 0) + amountChange).toFixed(2));
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
       transactions: updatedTransactions,
@@ -340,6 +340,16 @@ function PersonDebts() {
     fetchData();
   };
 
+  const handleQuickRepay = () => {
+      if (person && person.totalDebt > 0) {
+        setNewRepayment(prev => ({ 
+          ...prev, 
+          amount: parseFloat(person.totalDebt.toFixed(2)) 
+        }));
+        setOpenRepaymentDialog(true);
+      }
+  };
+  
   if (loading) {
     return <LoadingState />;
   }
@@ -430,6 +440,17 @@ function PersonDebts() {
               <Button variant="contained" color="success" startIcon={<PaymentIcon />} onClick={() => setOpenRepaymentDialog(true)} size="small">
                 Dodaj Spłatę
               </Button>
+                {!person.isSummary && person.totalDebt > 0 && (
+              <Button 
+                variant="contained" 
+                color="success" 
+                startIcon={<CreditScoreIcon />} 
+                onClick={handleQuickRepay} 
+                size="small"
+              >
+                Szybka spłata
+              </Button>
+              )}
               <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setOpenDeleteDialog(true)} size="small">
                 Usuń
               </Button>

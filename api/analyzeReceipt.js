@@ -32,20 +32,43 @@ module.exports = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-    const prompt = `
-      Przeanalizuj obraz. Twoim zadaniem jest ocenić, czy jest to paragon sklepowy.
+const prompt = `
+    Przeanalizuj obraz paragonu sklepowego. Twoim zadaniem jest precyzyjne zidentyfikowanie wszystkich pozycji zakupowych, ich cen oraz uwzględnienie ilości i rabatów.
 
-      1. Jeśli obraz NIE JEST paragonem, zwróć odpowiedź WYŁĄCZNIE w formacie JSON:
-         {"error": "Przesłany obraz nie wygląda na paragon."}
+    1.  Jeśli obraz NIE JEST paragonem, zwróć odpowiedź WYŁĄCZNIE w formacie JSON:
+        {"error": "Przesłany obraz nie jest paragonem."}
 
-      2. Jeśli obraz JEST paragonem, zidentyfikuj wszystkie pozycje zakupowe i ich ceny.
-         Zwróć odpowiedź WYŁĄCZNIE w formacie JSON, jako tablica obiektów.
-         Każdy obiekt w tablicy musi reprezentować jeden produkt i mieć dwa klucze:
-         - "item" (string): pełna nazwa produktu.
-         - "price" (number): cena produktu jako liczba.
-      
-      Całkowicie zignoruj sumy, rabaty, podatki, dane sklepu, NIP i inne niepotrzebne informacje. Skup się tylko na liście produktów.
-      Przykład poprawnej odpowiedzi dla paragonu: [{"item": "Mleko 2%", "price": 3.49}, {"item": "Chleb", "price": 4.99}]
+    2.  Jeśli obraz JEST paragonem, przetwórz go zgodnie z poniższymi zasadami i zwróć tablicę obiektów w formacie JSON. Każdy obiekt musi zawierać klucze "item" (string) i "price" (number).
+
+    ZASADY PRZETWARZANIA PARAGONU:
+    -   **Cena Końcowa:** Zawsze zwracaj ostateczną cenę za daną pozycję. Jeśli produkt występuje w wielu sztukach (np. "2 szt. x 3.50 PLN"), oblicz i zwróć sumaryczną wartość (w tym przypadku 7.00), a nie cenę jednostkową.
+    -   **Nazwa Produktu:** Klucz "item" musi zawierać pełną nazwę produktu, włącznie z informacją o ilości, jeśli jest dostępna (np. "Jajka 2 szt. x 1.50").
+    -   **Rabaty:**
+        -   Jeśli na paragonie znajduje się rabat przypisany do konkretnej pozycji (np. "Rabat - Masło"), pomniejsz jej cenę o wartość rabatu.
+        -   **Jeśli rabat pojawia się w osobnej linii bez nazwy produktu (np. tylko "Rabat" lub "Zniżka"), załóż, że dotyczy on pozycji znajdującej się bezpośrednio nad nim. Zmniejsz cenę tej poprzedniej pozycji o wartość rabatu.**
+        -   Jeśli rabat jest ogólny (np. na całe zakupy) i nie da się go jednoznacznie przypisać, dodaj go jako osobną pozycję z ujemną wartością, np. {"item": "Rabat ogólny", "price": -5.00}.
+    -   **Ignorowane Pozycje:** Całkowicie ignoruj sumy częściowe, sumy całkowite, podatki (VAT), dane sprzedawcy, NIP i inne informacje niebędące produktami lub rabatami.
+
+    PRZYKŁADY POPRAWNYCH ODPOWIEDZI JSON:
+
+    Przykład 1: Proste pozycje
+    [
+        {"item": "Mleko 2%", "price": 3.49},
+        {"item": "Chleb wiejski", "price": 4.99}
+    ]
+
+    Przykład 2: Wielosztuki i rabat ogólny
+    [
+        {"item": "Baton czekoladowy 2 szt. x 2.50", "price": 5.00},
+        {"item": "Woda gazowana 1.5l", "price": 1.99},
+        {"item": "Rabat za zakupy", "price": -2.00}
+    ]
+
+    Przykład 3: Rabat do poprzedniej pozycji
+    // Paragon: "Masło extra 8.00; Rabat -1.50"
+    [
+        {"item": "Masło extra", "price": 6.50}
+    ]
     `;
 
     const pureBase64 = imageBase64.split(",")[1];
