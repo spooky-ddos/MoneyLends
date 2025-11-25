@@ -62,7 +62,16 @@ function Dashboard() {
         const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
         const peopleSnapshot = await getDocs(peopleCollection);
         const peopleList = peopleSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .map(doc => {
+            const data = doc.data();
+            const transactions = data.transactions || [];
+            const calculatedDebt = transactions.reduce((acc, t) => acc + (t.type === 'debt' ? t.amount : -t.amount), 0);
+            return {
+              id: doc.id,
+              ...data,
+              totalDebt: parseFloat(calculatedDebt.toFixed(2)) // Override stored totalDebt
+            };
+          })
           .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
         setPeople(peopleList);
       } finally {

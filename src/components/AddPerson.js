@@ -13,10 +13,9 @@ function AddPerson() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!auth.currentUser) return;
-    
+
     await addDoc(collection(db, 'users', auth.currentUser.uid, 'people'), {
       name,
-      totalDebt: 0,
       createdAt: new Date(),
       transactions: []
     });
@@ -24,18 +23,18 @@ function AddPerson() {
   };
 
   return (
-    <Box 
+    <Box
       component={motion.div}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      sx={{ 
+      sx={{
         maxWidth: '600px',
         width: { xs: '95%', sm: '100%' },
         margin: '2rem auto',
         padding: { xs: '0.5rem', sm: '2rem' }
       }}
     >
-      <Paper elevation={3} sx={{ 
+      <Paper elevation={3} sx={{
         padding: '2rem',
         backgroundColor: 'rgba(255,255,255,0.9)'
       }}>
@@ -52,7 +51,7 @@ function AddPerson() {
             Dodaj Nową Osobę
           </Typography>
         </Box>
-        
+
         <form onSubmit={handleSubmit}>
           <TextField
             label="Imię i Nazwisko"
@@ -62,12 +61,12 @@ function AddPerson() {
             fullWidth
             sx={{ mb: 3 }}
           />
-          
-          <Button 
+
+          <Button
             type="submit"
             variant="contained"
             fullWidth
-            sx={{ 
+            sx={{
               transition: 'all 0.3s ease',
               '&:hover': {
                 transform: 'scale(1.02)'
@@ -82,4 +81,4 @@ function AddPerson() {
   );
 }
 
-export default AddPerson; 
+export default AddPerson;

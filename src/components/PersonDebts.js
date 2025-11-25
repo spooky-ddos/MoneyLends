@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Dodajemy useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { db, auth } from '../firebase';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -56,48 +56,48 @@ ChartJS.register(
 );
 
 function LoadingState() {
-    return (
-        <Box
-          sx={{
-            maxWidth: '1400px',
-            width: { xs: '95%', sm: '100%' },
-            margin: '2rem auto',
-            padding: { xs: '0.5rem', sm: '2rem' }
-          }}
-        >
+  return (
+    <Box
+      sx={{
+        maxWidth: '1400px',
+        width: { xs: '95%', sm: '100%' },
+        margin: '2rem auto',
+        padding: { xs: '0.5rem', sm: '2rem' }
+      }}
+    >
+      <Skeleton
+        variant="rounded"
+        height={200}
+        sx={{
+          mb: 3,
+          transform: 'none',
+          animation: 'pulse 1.5s ease-in-out 0.5s infinite'
+        }}
+      />
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
           <Skeleton
             variant="rounded"
-            height={200}
+            height={400}
             sx={{
-              mb: 3,
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
           />
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Skeleton
-                variant="rounded"
-                height={400}
-                sx={{
-                  transform: 'none',
-                  animation: 'pulse 1.5s ease-in-out 0.5s infinite'
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Skeleton
-                variant="rounded"
-                height={400}
-                sx={{
-                  transform: 'none',
-                  animation: 'pulse 1.5s ease-in-out 0.5s infinite'
-                }}
-              />
-            </Grid>
-          </Grid>
-        </Box>
-      );
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Skeleton
+            variant="rounded"
+            height={400}
+            sx={{
+              transform: 'none',
+              animation: 'pulse 1.5s ease-in-out 0.5s infinite'
+            }}
+          />
+        </Grid>
+      </Grid>
+    </Box>
+  );
 }
 
 function PersonDebts() {
@@ -133,10 +133,19 @@ function PersonDebts() {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = { id: docSnap.id, ...docSnap.data() };
-        setPerson({ ...data, isSummary: !!data.isSummary });
+        // Calculate total debt dynamically
+        const calculatedTotalDebt = (data.transactions || []).reduce((acc, t) => {
+          return acc + (t.type === 'debt' ? t.amount : -t.amount);
+        }, 0);
+
+        setPerson({
+          ...data,
+          isSummary: !!data.isSummary,
+          totalDebt: parseFloat(calculatedTotalDebt.toFixed(2))
+        });
       }
     } catch (error) {
-        console.error("Błąd podczas pobierania danych:", error);
+      console.error("Błąd podczas pobierania danych:", error);
     } finally {
       setLoading(false);
     }
@@ -175,11 +184,10 @@ function PersonDebts() {
     };
 
     const updatedTransactions = [...(person.transactions || []), debtToAdd];
-    const newTotalDebt = parseFloat(((person.totalDebt || 0) + debtToAdd.amount).toFixed(2));
+    // Removed totalDebt update
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
-      transactions: updatedTransactions,
-      totalDebt: newTotalDebt
+      transactions: updatedTransactions
     });
 
     setOpenDebtDialog(false);
@@ -197,18 +205,17 @@ function PersonDebts() {
     };
 
     const updatedTransactions = [...(person.transactions || []), repaymentToAdd];
-    const newTotalDebt = parseFloat(((person.totalDebt || 0) - repaymentToAdd.amount).toFixed(2));
+    // Removed totalDebt update
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
-      transactions: updatedTransactions,
-      totalDebt: newTotalDebt
+      transactions: updatedTransactions
     });
 
     setOpenRepaymentDialog(false);
     setNewRepayment({ amount: '', method: 'Gotówka', date: new Date().toISOString().split('T')[0], description: '' });
     fetchData();
   };
-  
+
   const getFilteredTransactions = () => {
     if (!person?.transactions) return [];
     let transactions;
@@ -223,8 +230,8 @@ function PersonDebts() {
         transactions = person.transactions;
     }
     return transactions.sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        return b.date.toDate() - a.date.toDate();
+      if (!a.date || !b.date) return 0;
+      return b.date.toDate() - a.date.toDate();
     });
   };
 
@@ -266,7 +273,7 @@ function PersonDebts() {
       ]
     };
   };
-  
+
   const getMonthlyChartData = () => {
     if (!person?.transactions || person.transactions.length === 0) {
       return { labels: [], datasets: [] };
@@ -292,7 +299,7 @@ function PersonDebts() {
     });
 
     const sortedMonthKeys = Object.keys(monthlyData).sort((a, b) => {
-        return monthlyData[a].dateObject.getTime() - monthlyData[b].dateObject.getTime();
+      return monthlyData[a].dateObject.getTime() - monthlyData[b].dateObject.getTime();
     });
 
     const labels = sortedMonthKeys.map(key =>
@@ -324,15 +331,10 @@ function PersonDebts() {
     if (!transactionToDelete) return;
 
     const updatedTransactions = person.transactions.filter((t, index) => index !== transactionToDelete.index);
-    const amountChange = transactionToDelete.transaction.type === 'debt'
-      ? -transactionToDelete.transaction.amount
-      : transactionToDelete.transaction.amount;
-
-    const newTotalDebt = parseFloat(((person.totalDebt || 0) + amountChange).toFixed(2));
+    // Removed totalDebt update
 
     await updateDoc(doc(db, 'users', auth.currentUser.uid, 'people', id), {
-      transactions: updatedTransactions,
-      totalDebt: newTotalDebt
+      transactions: updatedTransactions
     });
 
     setOpenTransactionDeleteDialog(false);
@@ -341,27 +343,27 @@ function PersonDebts() {
   };
 
   const handleQuickRepay = () => {
-      if (person && person.totalDebt > 0) {
-        setNewRepayment(prev => ({ 
-          ...prev, 
-          amount: parseFloat(person.totalDebt.toFixed(2)) 
-        }));
-        setOpenRepaymentDialog(true);
-      }
+    if (person && person.totalDebt > 0) {
+      setNewRepayment(prev => ({
+        ...prev,
+        amount: parseFloat(person.totalDebt.toFixed(2))
+      }));
+      setOpenRepaymentDialog(true);
+    }
   };
-  
+
   if (loading) {
     return <LoadingState />;
   }
 
   if (!person) {
     return (
-        <Box sx={{ maxWidth: '1400px', width: { xs: '95%', sm: '100%' }, margin: '2rem auto', padding: { xs: '0.5rem', sm: '2rem' } }}>
-            <Typography variant="h5" align="center">Ładowanie danych lub pozycja nie istnieje.</Typography>
-            <Button component={Link} to="/" variant="outlined" sx={{ mt: 2, display: 'block', margin: 'auto' }}>
-                ← Powrót do listy
-            </Button>
-        </Box>
+      <Box sx={{ maxWidth: '1400px', width: { xs: '95%', sm: '100%' }, margin: '2rem auto', padding: { xs: '0.5rem', sm: '2rem' } }}>
+        <Typography variant="h5" align="center">Ładowanie danych lub pozycja nie istnieje.</Typography>
+        <Button component={Link} to="/" variant="outlined" sx={{ mt: 2, display: 'block', margin: 'auto' }}>
+          ← Powrót do listy
+        </Button>
+      </Box>
     );
   }
 
@@ -440,16 +442,16 @@ function PersonDebts() {
               <Button variant="contained" color="success" startIcon={<PaymentIcon />} onClick={() => setOpenRepaymentDialog(true)} size="small">
                 Dodaj Spłatę
               </Button>
-                {!person.isSummary && person.totalDebt > 0 && (
-              <Button 
-                variant="contained" 
-                color="success" 
-                startIcon={<CreditScoreIcon />} 
-                onClick={handleQuickRepay} 
-                size="small"
-              >
-                Szybka spłata
-              </Button>
+              {!person.isSummary && person.totalDebt > 0 && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CreditScoreIcon />}
+                  onClick={handleQuickRepay}
+                  size="small"
+                >
+                  Szybka spłata
+                </Button>
               )}
               <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setOpenDeleteDialog(true)} size="small">
                 Usuń
@@ -500,7 +502,7 @@ function PersonDebts() {
           <ToggleButtonGroup
             value={viewMode}
             exclusive
-            onChange={(e, newValue) => { if (newValue !== null) setViewMode(newValue);}}
+            onChange={(e, newValue) => { if (newValue !== null) setViewMode(newValue); }}
             sx={{
               mb: 3,
               flexWrap: 'wrap',

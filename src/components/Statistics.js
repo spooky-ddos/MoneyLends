@@ -35,40 +35,40 @@ function LoadingState() {
       <Skeleton variant="text" width="200px" height={40} sx={{ mb: 4 }} />
       <Grid container spacing={4}>
         <Grid item xs={12} md={6}>
-          <Skeleton 
-            variant="rounded" 
+          <Skeleton
+            variant="rounded"
             height={300}
-            sx={{ 
+            sx={{
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <Skeleton 
-            variant="rounded" 
+          <Skeleton
+            variant="rounded"
             height={300}
-            sx={{ 
+            sx={{
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <Skeleton 
-            variant="rounded" 
+          <Skeleton
+            variant="rounded"
             height={300}
-            sx={{ 
+            sx={{
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <Skeleton 
-            variant="rounded" 
+          <Skeleton
+            variant="rounded"
             height={300}
-            sx={{ 
+            sx={{
               transform: 'none',
               animation: 'pulse 1.5s ease-in-out 0.5s infinite'
             }}
@@ -89,19 +89,27 @@ function Statistics() {
   useEffect(() => {
     const fetchData = async () => {
       if (!auth.currentUser) return;
-      
+
       try {
         await new Promise(resolve => setTimeout(resolve, 500));
         const peopleCollection = collection(db, 'users', auth.currentUser.uid, 'people');
         const peopleSnapshot = await getDocs(peopleCollection);
-        const peopleList = peopleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(person => !person.isSummary);
-        
+        const peopleList = peopleSnapshot.docs.map(doc => {
+          const data = doc.data();
+          const transactions = data.transactions || [];
+          const calculatedDebt = transactions.reduce((acc, t) => acc + (t.type === 'debt' ? t.amount : -t.amount), 0);
+          return {
+            id: doc.id,
+            ...data,
+            totalDebt: parseFloat(calculatedDebt.toFixed(2)) // Override stored totalDebt with calculated one
+          };
+        }).filter(person => !person.isSummary);
+
         setPeople(peopleList);
-        
+
         const total = peopleList.reduce((sum, person) => sum + (person.totalDebt || 0), 0);
         setTotalDebt(total);
-        
+
         const paymentMethods = { cash: 0, bank: 0 };
         peopleList.forEach(person => {
           person.transactions?.forEach(transaction => {
@@ -119,7 +127,7 @@ function Statistics() {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, []);
 
@@ -154,10 +162,10 @@ function Statistics() {
         while (remainingDebt > 0 && availableRepayments.length > 0) {
           const repayment = availableRepayments[0];
           const repaymentAmount = Math.min(remainingDebt, repayment.amount);
-          
+
           remainingDebt -= repaymentAmount;
           repaymentDates.push(repayment.date.toDate());
-          
+
           if (repaymentAmount < repayment.amount) {
             availableRepayments[0] = {
               ...repayment,
@@ -182,7 +190,7 @@ function Statistics() {
       }
     });
 
-    return personAverages.length > 0 
+    return personAverages.length > 0
       ? Math.round(personAverages.reduce((sum, avg) => sum + avg, 0) / personAverages.length)
       : 0;
   };
@@ -231,7 +239,7 @@ function Statistics() {
   const getTotalDebtChartData = () => {
     if (!people.length) return { labels: [], datasets: [] };
 
-    const allTransactions = people.flatMap(person => 
+    const allTransactions = people.flatMap(person =>
       (person.transactions || []).map(t => ({
         ...t,
         date: t.date.toDate()
@@ -264,11 +272,11 @@ function Statistics() {
   };
 
   return (
-    <Box 
+    <Box
       component={motion.div}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      sx={{ 
+      sx={{
         maxWidth: '1400px',
         width: { xs: '95%', sm: '100%' },
         margin: '2rem auto',
@@ -282,8 +290,8 @@ function Statistics() {
       <Grid container spacing={4}>
         <Grid item xs={12} md={6}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Paper elevation={3} sx={{ 
-              p: 3, 
+            <Paper elevation={3} sx={{
+              p: 3,
               backgroundColor: 'rgba(255,255,255,0.9)',
               borderTop: 3,
               borderColor: 'primary.main',
@@ -300,7 +308,7 @@ function Statistics() {
                 zIndex: 0
               }
             }}>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 color: 'primary.main',
                 fontWeight: 'medium',
                 position: 'relative',
@@ -308,9 +316,9 @@ function Statistics() {
               }}>
                 Podsumowanie
               </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
                 gap: 2,
                 position: 'relative',
                 zIndex: 1
@@ -330,8 +338,8 @@ function Statistics() {
               </Box>
             </Paper>
 
-            <Paper elevation={3} sx={{ 
-              p: 3, 
+            <Paper elevation={3} sx={{
+              p: 3,
               backgroundColor: 'rgba(255,255,255,0.9)',
               borderTop: 3,
               borderColor: 'error.main',
@@ -348,7 +356,7 @@ function Statistics() {
                 zIndex: 0
               }
             }}>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 color: 'error.main',
                 fontWeight: 'medium',
                 position: 'relative',
@@ -386,13 +394,13 @@ function Statistics() {
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100%' 
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%'
           }}>
-            <Paper elevation={3} sx={{ 
-              p: 3, 
+            <Paper elevation={3} sx={{
+              p: 3,
               backgroundColor: 'rgba(255,255,255,0.9)',
               display: 'flex',
               flexDirection: 'column',
@@ -409,23 +417,22 @@ function Statistics() {
                 right: 0,
                 width: '30%',
                 height: '100%',
-                background: `linear-gradient(90deg, transparent, ${
-                  sortOrder === 'desc' 
+                background: `linear-gradient(90deg, transparent, ${sortOrder === 'desc'
                     ? 'rgba(211, 47, 47, 0.05)'
                     : 'rgba(76, 175, 80, 0.05)'
-                })`,
+                  })`,
                 zIndex: 0
               }
             }}>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 mb: 3,
                 position: 'relative',
                 zIndex: 1
               }}>
-                <Typography variant="h6" sx={{ 
+                <Typography variant="h6" sx={{
                   color: sortOrder === 'desc' ? 'error.main' : 'success.main',
                   fontWeight: 'medium'
                 }}>
@@ -446,7 +453,7 @@ function Statistics() {
                 </ToggleButtonGroup>
               </Box>
 
-              <Box sx={{ 
+              <Box sx={{
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
@@ -454,10 +461,10 @@ function Statistics() {
                 overflow: 'auto'
               }}>
                 {sortedDebtors.map((person, index) => (
-                  <Box 
-                    key={person.id} 
-                    sx={{ 
-                      display: 'flex', 
+                  <Box
+                    key={person.id}
+                    sx={{
+                      display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       p: 2,
@@ -465,13 +472,13 @@ function Statistics() {
                       borderRadius: 1,
                       boxShadow: 1,
                       border: 1,
-                      borderColor: index === 0 
-                        ? (sortOrder === 'desc' ? 'error.main' : 'success.main') 
+                      borderColor: index === 0
+                        ? (sortOrder === 'desc' ? 'error.main' : 'success.main')
                         : 'divider',
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         boxShadow: 2,
-                        borderColor: index === 0 
+                        borderColor: index === 0
                           ? (sortOrder === 'desc' ? 'error.main' : 'success.main')
                           : 'primary.main',
                         bgcolor: 'action.hover'
@@ -479,12 +486,12 @@ function Statistics() {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography 
-                        sx={{ 
-                          width: 28, 
+                      <Typography
+                        sx={{
+                          width: 28,
                           height: 28,
                           borderRadius: '50%',
-                          bgcolor: index === 0 
+                          bgcolor: index === 0
                             ? (sortOrder === 'desc' ? 'error.main' : 'success.main')
                             : 'primary.main',
                           color: 'white',
@@ -498,10 +505,10 @@ function Statistics() {
                       </Typography>
                       <Typography>{person.name}</Typography>
                     </Box>
-                    <Typography 
-                      color={index === 0 
+                    <Typography
+                      color={index === 0
                         ? (sortOrder === 'desc' ? 'error.main' : 'success.main')
-                        : 'text.primary'} 
+                        : 'text.primary'}
                       fontWeight="medium"
                     >
                       {new Intl.NumberFormat('pl-PL', {
@@ -518,8 +525,8 @@ function Statistics() {
 
         <Grid item xs={12} container spacing={2}>
           <Grid item xs={12} md={6}>
-            <Paper elevation={3} sx={{ 
-              p: 3, 
+            <Paper elevation={3} sx={{
+              p: 3,
               backgroundColor: 'rgba(255,255,255,0.9)',
               minHeight: '300px',
               borderTop: 3,
@@ -537,7 +544,7 @@ function Statistics() {
                 zIndex: 0
               }
             }}>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 color: 'primary.main',
                 fontWeight: 'medium',
                 textAlign: 'center',
@@ -547,7 +554,7 @@ function Statistics() {
                 Metody Spłat
               </Typography>
               <Box sx={{ height: '220px', position: 'relative', zIndex: 1 }}>
-                <Pie 
+                <Pie
                   data={{
                     labels: ['Gotówka', 'Konto'],
                     datasets: [{
@@ -561,7 +568,7 @@ function Statistics() {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                      legend: { 
+                      legend: {
                         position: 'top',
                         padding: 10
                       },
@@ -583,8 +590,8 @@ function Statistics() {
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Paper elevation={3} sx={{ 
-              p: 3, 
+            <Paper elevation={3} sx={{
+              p: 3,
               backgroundColor: 'rgba(255,255,255,0.9)',
               minHeight: '300px',
               borderTop: 3,
@@ -602,7 +609,7 @@ function Statistics() {
                 zIndex: 0
               }
             }}>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 color: 'success.main',
                 fontWeight: 'medium',
                 textAlign: 'center',
