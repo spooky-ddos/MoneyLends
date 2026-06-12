@@ -57,7 +57,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ message: "No image data provided." });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
     const prompt = `
     Przeanalizuj obraz paragonu sklepowego. Twoim zadaniem jest precyzyjne zidentyfikowanie wszystkich pozycji zakupowych, ich cen oraz uwzględnienie ilości i rabatów.
 
