@@ -23,7 +23,6 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { motion } from 'framer-motion';
-import GroupPayment from './GroupPayment';
 
 function LoadingState() {
   return (
@@ -50,7 +49,6 @@ function LoadingState() {
 function Dashboard() {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [openGroupPayment, setOpenGroupPayment] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -200,7 +198,7 @@ function Dashboard() {
                       {person.isSummary ? 'Suma wydatków' : 'Całkowity dług'}: {new Intl.NumberFormat('pl-PL', {
                         style: 'currency',
                         currency: 'PLN'
-                      }).format(person.totalDebt || 0)}
+                      }).format(person.isSummary ? -(person.totalDebt || 0) : (person.totalDebt || 0))}
                     </Typography>
                   </Box>
 
@@ -238,10 +236,6 @@ function Dashboard() {
           ))}
         </Grid>
       )}
-      <GroupPayment
-        open={openGroupPayment}
-        onClose={() => setOpenGroupPayment(false)}
-      />
     </Box>
   );
 }

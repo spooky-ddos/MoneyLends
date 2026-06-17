@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
     const prompt = `
-    Przeanalizuj obraz paragonu sklepowego. Twoim zadaniem jest precyzyjne zidentyfikowanie wszystkich pozycji zakupowych, ich cen oraz uwzględnienie ilości i rabatów.
+    Przeanalizuj obraz paragonu sklepowego. Twoim głównym zadaniem jest precyzyjne zidentyfikowanie wszystkich pozycji zakupowych, ich cen oraz uwzględnienie ilości i rabatów. Dodatkowo spróbuj odczytać nazwę sklepu oraz datę transakcji.
 
     **ZASADY OGÓLNE ODPOWIEDZI:**
     - **Twoja odpowiedź MUSI być WYŁĄCZNIE stringiem JSON.**
@@ -69,9 +69,24 @@ module.exports = async (req, res) => {
     1.  Jeśli obraz NIE JEST paragonem, zwróć **WYŁĄCZNIE** poniższy JSON:
         {"error": "Przesłany obraz nie jest paragonem."}
 
-    2.  Jeśli obraz JEST paragonem, przetwórz go zgodnie z poniższymi zasadami i zwróć **WYŁĄCZNIE** tablicę obiektów JSON. Każdy obiekt musi zawierać klucze "item" (string) i "price" (number).
+    2.  Jeśli obraz JEST paragonem, zwróć **WYŁĄCZNIE** obiekt JSON o następującej strukturze:
+        {
+          "store": string | null,
+          "date": string | null,
+          "items": [ { "item": string, "price": number } ]
+        }
 
-    ZASADY PRZETWARZANIA PARAGONU:
+    ZASADY DLA POLA "store" (nazwa sklepu):
+    -   Podaj POTOCZNĄ, krótką nazwę sieci/sklepu (np. "Lidl", "Auchan", "Biedronka", "Żabka", "Rossmann").
+    -   NIE podawaj pełnej nazwy prawnej — pomiń formy typu "Sp. z o.o.", "S.A.", adresy, NIP itp.
+    -   Jeśli nazwy nie da się jednoznacznie ustalić, ustaw null.
+
+    ZASADY DLA POLA "date" (data transakcji):
+    -   Format MUSI być dokładnie "YYYY-MM-DD".
+    -   Jeśli daty nie da się odczytać, ustaw null.
+    -   To pole jest pomocnicze — w razie wątpliwości wstaw null, nie zgaduj.
+
+    ZASADY DLA POLA "items" (pozycje) — TO NAJWAŻNIEJSZA CZĘŚĆ:
     -   **Cena Końcowa:** Zawsze zwracaj ostateczną cenę za daną pozycję. Jeśli produkt występuje w wielu sztukach (np. "2 szt. x 3.50 PLN"), oblicz i zwróć sumaryczną wartość (w tym przypadku 7.00), a nie cenę jednostkową.
     -   **Nazwa Produktu:** Klucz "item" musi zawierać pełną nazwę produktu, włącznie z informacją o ilości, jeśli jest dostępna (np. "Jajka 2 szt. x 1.50").
     -   **Rabaty:**
@@ -82,26 +97,38 @@ module.exports = async (req, res) => {
 
     PRZYKŁADY POPRAWNYCH ODPOWIEDZI JSON:
 
-    Przykład 1: Proste pozycje
-    [
-        {"item": "Mleko 2%", "price": 3.49},
-        {"item": "Chleb wiejski", "price": 4.99}
-    ]
+    Przykład 1: Czytelny sklep i data
+    {
+        "store": "Biedronka",
+        "date": "2024-05-12",
+        "items": [
+            {"item": "Mleko 2%", "price": 3.49},
+            {"item": "Chleb wiejski", "price": 4.99}
+        ]
+    }
 
-    Przykład 2: Wielosztuki i rabat ogólny
-    [
-        {"item": "Baton czekoladowy 2 szt. x 2.50", "price": 5.00},
-        {"item": "Woda gazowana 1.5l", "price": 1.99},
-        {"item": "Rabat za zakupy", "price": -2.00}
-    ]
+    Przykład 2: Nieznany sklep / nieczytelna data, wielosztuki i rabat ogólny
+    {
+        "store": null,
+        "date": null,
+        "items": [
+            {"item": "Baton czekoladowy 2 szt. x 2.50", "price": 5.00},
+            {"item": "Woda gazowana 1.5l", "price": 1.99},
+            {"item": "Rabat za zakupy", "price": -2.00}
+        ]
+    }
 
     Przykład 3: Rabat do poprzedniej pozycji
-    // Paragon: "Masło extra 8.00; Rabat -1.50"
-    [
-        {"item": "Masło extra", "price": 6.50}
-    ]
+    // Paragon ze sklepu Lidl: "Masło extra 8.00; Rabat -1.50"
+    {
+        "store": "Lidl",
+        "date": "2024-01-03",
+        "items": [
+            {"item": "Masło extra", "price": 6.50}
+        ]
+    }
 
-    **PAMIĘTAJ: Zwróć tylko i wyłącznie string JSON, bez żadnych dodatkowych opisów czy formatowania markdown.**
+    **PAMIĘTAJ: Zwróć tylko i wyłącznie string JSON (obiekt), bez żadnych dodatkowych opisów czy formatowania markdown.**
     `;
 
     // Usuwamy prefix 'data:image/jpeg;base64,' jeśli istnieje
@@ -204,8 +231,19 @@ module.exports = async (req, res) => {
     // Ogólny błąd serwera (np. błąd połączenia z API Gemini, błąd w kodzie funkcji)
     console.error("Krytyczny błąd w /api/analyzeReceipt:", error);
 
-    // Logujemy błąd 500 do Firebase, jeśli db jest dostępne
-    if (db) {
+    // Błędy przejściowe (model przeciążony / 503 / chwilowa niedostępność) są normalne
+    // i obsługiwane przez automatyczne ponawianie po stronie klienta — NIE logujemy ich do bazy.
+    const message = error.message || '';
+    const isTransientError =
+      message.includes('503') ||
+      message.includes('Service Unavailable') ||
+      message.includes('high demand') ||
+      message.includes('overloaded') ||
+      message.includes('429') ||
+      message.includes('Too Many Requests');
+
+    // Logujemy błąd 500 do Firebase tylko jeśli NIE jest to błąd przejściowy.
+    if (db && !isTransientError) {
       try {
         await db.collection('gemini_error_logs').add({
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -217,6 +255,13 @@ module.exports = async (req, res) => {
       } catch (logError) {
         console.error("Błąd zapisu logu (ApiInternalError) do Firebase.", logError);
       }
+    }
+
+    if (isTransientError) {
+      // 503 -> klient potraktuje to jako błąd do ponowienia.
+      return res.status(503).json({
+        message: "Model AI jest chwilowo przeciążony. Trwa ponawianie próby..."
+      });
     }
 
     // Zwracamy generyczny błąd 500 do klienta

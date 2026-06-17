@@ -9,6 +9,7 @@ import AddPerson from './components/AddPerson';
 import Statistics from './components/Statistics';
 import ProtectedRoute from './components/ProtectedRoute';
 import PersonDebts from './components/PersonDebts';
+import GroupPaymentPage from './components/GroupPaymentPage';
 import './styles/theme.css';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SnackbarProvider } from './contexts/SnackbarContext';
@@ -37,6 +38,11 @@ function App() {
                 <Route path="/dodaj-osobe" element={
                   <ProtectedRoute>
                     <AddPerson />
+                  </ProtectedRoute>
+                } />
+                <Route path="/grupowa-platnosc" element={
+                  <ProtectedRoute>
+                    <GroupPaymentPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/osoba/:id" element={

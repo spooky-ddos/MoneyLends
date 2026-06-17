@@ -144,6 +144,9 @@ function Statistics() {
 
   const calculateAverageRepaymentTime = (peopleList) => {
     const personAverages = [];
+    // Tolerancja pół grosza - chroni przed błędami zmiennoprzecinkowymi
+    // (np. resztki typu 0,0000002 uznawane błędnie za niespłaconą część długu).
+    const EPS = 0.005;
 
     peopleList.forEach(person => {
       const sortedTransactions = [...(person.transactions || [])].sort(
@@ -159,14 +162,14 @@ function Statistics() {
         let remainingDebt = debt.amount;
         let repaymentDates = [];
 
-        while (remainingDebt > 0 && availableRepayments.length > 0) {
+        while (remainingDebt > EPS && availableRepayments.length > 0) {
           const repayment = availableRepayments[0];
           const repaymentAmount = Math.min(remainingDebt, repayment.amount);
 
           remainingDebt -= repaymentAmount;
           repaymentDates.push(repayment.date.toDate());
 
-          if (repaymentAmount < repayment.amount) {
+          if (repayment.amount - repaymentAmount > EPS) {
             availableRepayments[0] = {
               ...repayment,
               amount: repayment.amount - repaymentAmount
@@ -176,7 +179,7 @@ function Statistics() {
           }
         }
 
-        if (remainingDebt === 0) {
+        if (remainingDebt <= EPS && repaymentDates.length > 0) {
           const lastRepaymentDate = new Date(Math.max(...repaymentDates));
           const diffTime = Math.abs(lastRepaymentDate - debt.date.toDate());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -210,12 +213,16 @@ function Statistics() {
         .reduce((sum, t) => sum + t.amount, 0);
 
       for (const debt of debts) {
-        if (totalRepayments >= debt.amount) {
-          totalRepayments -= debt.amount;
+        // Zaokrąglamy do groszy, by uniknąć błędów zmiennoprzecinkowych
+        // (np. resztki typu 0,0000002 błędnie traktowane jako niespłacony dług).
+        const remainingDebt = parseFloat((debt.amount - totalRepayments).toFixed(2));
+
+        if (remainingDebt <= 0) {
+          // Dług w pełni spłacony - zostawiamy nadwyżkę spłat na kolejne długi.
+          totalRepayments = Math.max(0, totalRepayments - debt.amount);
           continue;
         }
 
-        const remainingDebt = debt.amount - totalRepayments;
         totalRepayments = 0;
 
         if (!oldestDebt || debt.date.toDate() < oldestDebt.date.toDate()) {
@@ -250,7 +257,7 @@ function Statistics() {
 
     let balance = 0;
     const data = sortedTransactions.map(t => {
-      balance += t.type === 'debt' ? t.amount : -t.amount;
+      balance = parseFloat((balance + (t.type === 'debt' ? t.amount : -t.amount)).toFixed(2));
       return {
         date: t.date,
         balance

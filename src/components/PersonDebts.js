@@ -254,7 +254,7 @@ function PersonDebts() {
     let balance = 0;
     const data = sortedTransactions.map(t => {
       const transactionDate = t.date.toDate();
-      balance += t.type === 'debt' ? t.amount : -t.amount;
+      balance = parseFloat((balance + (t.type === 'debt' ? t.amount : -t.amount)).toFixed(2));
       return {
         date: transactionDate,
         balance
@@ -413,7 +413,7 @@ function PersonDebts() {
                 {person.isSummary ? "Suma wydatków" : "Dług"}: {new Intl.NumberFormat('pl-PL', {
                   style: 'currency',
                   currency: 'PLN'
-                }).format(person.totalDebt || 0)}
+                }).format(person.isSummary ? -(person.totalDebt || 0) : (person.totalDebt || 0))}
               </Typography>
             </Box>
           </Grid>

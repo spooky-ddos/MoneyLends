@@ -1,12 +1,11 @@
 import React, { useContext, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Button, IconButton, Typography, Box, Container, Menu, MenuItem } from '@mui/material';
 import { ExitToApp as LogoutIcon, Brightness4, Brightness7, Menu as MenuIcon, Home as HomeIcon, BarChart as BarChartIcon, PersonAdd as PersonAddIcon, GroupAdd as GroupAddIcon, Settings as SettingsIcon } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { useTheme } from '../contexts/ThemeContext';
-import GroupPayment from './GroupPayment';
 import Settings from './Settings';
 
 function Navigation() {
@@ -14,9 +13,7 @@ function Navigation() {
   const navigate = useNavigate();
   const { darkMode, setDarkMode } = useTheme();
   const [anchorEl, setAnchorEl] = useState(null);
-  const [openGroupPayment, setOpenGroupPayment] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
-  const location = useLocation();
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -32,12 +29,6 @@ function Navigation() {
       navigate('/login');
     } catch (error) {
       console.error('Błąd podczas wylogowywania:', error);
-    }
-  };
-
-  const handleGroupPaymentSuccess = () => {
-    if (location.pathname === '/') {
-      window.location.reload();
     }
   };
 
@@ -93,7 +84,8 @@ function Navigation() {
                   Dodaj Nową Osobę
                 </Button>
                 <Button 
-                  onClick={() => setOpenGroupPayment(true)}
+                  component={Link}
+                  to="/grupowa-platnosc"
                   variant="contained"
                   sx={{ 
                     bgcolor: 'primary.main',
@@ -199,17 +191,17 @@ function Navigation() {
                     <PersonAddIcon sx={{ color: 'primary.main' }} />
                     <span>Dodaj Nową Osobę</span>
                   </MenuItem>
-                  <MenuItem onClick={() => {
-                    setOpenGroupPayment(true);
-                    handleClose();
-                  }}
-                  sx={{ 
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 3,
-                    pl: 3,
-                    py: 2
-                  }}
+                  <MenuItem
+                    component={Link}
+                    to="/grupowa-platnosc"
+                    onClick={handleClose}
+                    sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      pl: 3,
+                      py: 2
+                    }}
                   >
                     <GroupAddIcon sx={{ color: 'primary.main' }} />
                     <span>Grupowa Płatność</span>
@@ -251,11 +243,6 @@ function Navigation() {
           )}
         </Toolbar>
       </Container>
-      <GroupPayment 
-        open={openGroupPayment} 
-        onClose={() => setOpenGroupPayment(false)}
-        onSuccess={handleGroupPaymentSuccess}
-      />
       <Settings 
         open={openSettings}
         onClose={() => setOpenSettings(false)}
