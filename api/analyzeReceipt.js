@@ -131,10 +131,18 @@ module.exports = async (req, res) => {
     **PAMIĘTAJ: Zwróć tylko i wyłącznie string JSON (obiekt), bez żadnych dodatkowych opisów czy formatowania markdown.**
     `;
 
-    // Usuwamy prefix 'data:image/jpeg;base64,' jeśli istnieje
+    // Odczytujemy typ MIME z prefiksu data URL (np. 'data:image/png;base64,...').
+    // Klient wysyła zwykle JPEG, ale obsłużymy też inne wspierane formaty.
+    let mimeType = "image/jpeg";
+    if (imageBase64.startsWith('data:')) {
+      const mimeMatch = imageBase64.match(/^data:([^;]+);/);
+      if (mimeMatch && mimeMatch[1]) {
+        mimeType = mimeMatch[1];
+      }
+    }
     const pureBase64 = imageBase64.startsWith('data:') ? imageBase64.split(",")[1] : imageBase64;
     const imagePart = {
-      inlineData: { data: pureBase64, mimeType: "image/jpeg" }, // Zakładamy JPEG, można by dodać detekcję MIME type
+      inlineData: { data: pureBase64, mimeType },
     };
 
     const result = await model.generateContent([prompt, imagePart]);

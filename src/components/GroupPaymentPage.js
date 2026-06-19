@@ -44,12 +44,100 @@ const delay = (ms, signal) => new Promise((resolve, reject) => {
   }, { once: true });
 });
 
-const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = () => reject(new Error('Nie udało się odczytać pliku obrazu.'));
-  reader.readAsDataURL(file);
+// Limit żądania na Vercelu to ~4.5MB. Base64 zwiększa rozmiar o ~33%, więc
+// celujemy w bezpieczny pułap długości stringa base64 (z zapasem na JSON).
+const MAX_BASE64_LENGTH = 3_900_000;
+
+// Najpopularniejsze formaty zdjęć, które obsługujemy (resztę odrzucamy z opisem).
+const ACCEPTED_IMAGE_TYPES = [
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'
+];
+
+const userError = (message) => {
+  const err = new Error(message);
+  err.userFacing = true;
+  return err;
+};
+
+const loadImageElement = (file) => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    resolve(img);
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    reject(new Error('decode-failed'));
+  };
+  img.src = url;
 });
+
+// Renderuje obraz do JPEG (opcjonalnie w skali szarości) o zadanej maks. krawędzi i jakości.
+const encodeToJpeg = (img, maxDimension, grayscale, quality) => {
+  const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+
+  if (grayscale) {
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+      data[i] = data[i + 1] = data[i + 2] = gray;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  return canvas.toDataURL('image/jpeg', quality);
+};
+
+// Waliduje format i przygotowuje obraz tak, by zmieścił się w limicie żądania,
+// tracąc jak najmniej informacji istotnych dla odczytu paragonu:
+// najpierw kolor w wysokiej jakości, potem skala szarości, na końcu zmniejszanie rozdzielczości.
+const prepareImageForUpload = async (file) => {
+  const type = (file.type || '').toLowerCase();
+  if (type && !ACCEPTED_IMAGE_TYPES.includes(type)) {
+    throw userError(`Nieobsługiwany format pliku (${type}). Użyj zdjęcia w formacie JPG, PNG, WEBP lub HEIC.`);
+  }
+
+  let img;
+  try {
+    img = await loadImageElement(file);
+  } catch (e) {
+    throw userError('Nie udało się odczytać tego obrazu. Spróbuj ponownie lub użyj innego formatu (np. JPG/PNG).');
+  }
+
+  let smallest = null;
+  const consider = (dataUrl) => {
+    if (!smallest || dataUrl.length < smallest.length) smallest = dataUrl;
+    return dataUrl.length <= MAX_BASE64_LENGTH;
+  };
+
+  let maxDimension = 2600;
+
+  // 1) Pełny kolor w wysokiej jakości - najlepsza czytelność.
+  for (const quality of [0.9, 0.8, 0.72]) {
+    if (consider(encodeToJpeg(img, maxDimension, false, quality))) return smallest;
+  }
+
+  // 2) Skala szarości + stopniowe zmniejszanie rozdzielczości.
+  while (maxDimension >= 800) {
+    for (const quality of [0.85, 0.75, 0.65, 0.55]) {
+      if (consider(encodeToJpeg(img, maxDimension, true, quality))) return smallest;
+    }
+    maxDimension = Math.round(maxDimension * 0.8);
+  }
+
+  // Fallback: najmniejszy uzyskany wariant (w praktyce nieosiągalne po zejściu do 800px).
+  return smallest;
+};
 
 
 // --- Animowany wskaźnik skanowania paragonu ---
@@ -1050,10 +1138,12 @@ function GroupPaymentPage() {
 
     let imageBase64;
     try {
-      imageBase64 = await readFileAsDataURL(file);
-    } catch (readError) {
+      imageBase64 = await prepareImageForUpload(file);
+    } catch (prepError) {
       if (cancelledRef.current) return;
-      setAnalysisError("Nie udało się odczytać pliku obrazu.");
+      // Błędy formatu/odczytu/rozmiaru nie nadają się do automatycznego ponawiania.
+      setAnalysisError(prepError.userFacing ? prepError.message : "Nie udało się przetworzyć obrazu. Spróbuj inne zdjęcie.");
+      setLastFailedFile(null);
       setView('default');
       return;
     }

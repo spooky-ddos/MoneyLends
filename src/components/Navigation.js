@@ -1,17 +1,19 @@
 import React, { useContext, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Button, IconButton, Typography, Box, Container, Menu, MenuItem } from '@mui/material';
-import { ExitToApp as LogoutIcon, Brightness4, Brightness7, Menu as MenuIcon, Home as HomeIcon, BarChart as BarChartIcon, PersonAdd as PersonAddIcon, GroupAdd as GroupAddIcon, Settings as SettingsIcon } from '@mui/icons-material';
+import { ExitToApp as LogoutIcon, Brightness4, Brightness7, Menu as MenuIcon, Home as HomeIcon, BarChart as BarChartIcon, PersonAdd as PersonAddIcon, GroupAdd as GroupAddIcon, Settings as SettingsIcon, AdminPanelSettings as AdminPanelSettingsIcon } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUserProfile } from '../contexts/UserProfileContext';
 import Settings from './Settings';
 
 function Navigation() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const { darkMode, setDarkMode } = useTheme();
+  const { isAdmin } = useUserProfile();
   const [anchorEl, setAnchorEl] = useState(null);
   const [openSettings, setOpenSettings] = useState(false);
 
@@ -98,6 +100,16 @@ function Navigation() {
                 >
                   Grupowa Płatność
                 </Button>
+                {isAdmin && (
+                  <Button
+                    component={Link}
+                    to="/admin"
+                    startIcon={<AdminPanelSettingsIcon />}
+                    sx={{ color: 'var(--text-color)' }}
+                  >
+                    Admin
+                  </Button>
+                )}
                 <IconButton 
                   onClick={() => setDarkMode(!darkMode)} 
                   sx={{ color: 'var(--text-color)' }}
@@ -206,6 +218,23 @@ function Navigation() {
                     <GroupAddIcon sx={{ color: 'primary.main' }} />
                     <span>Grupowa Płatność</span>
                   </MenuItem>
+                  {isAdmin && (
+                    <MenuItem
+                      component={Link}
+                      to="/admin"
+                      onClick={handleClose}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        pl: 3,
+                        py: 2
+                      }}
+                    >
+                      <AdminPanelSettingsIcon sx={{ color: 'primary.main' }} />
+                      <span>Admin</span>
+                    </MenuItem>
+                  )}
                   <MenuItem 
                     onClick={() => {
                       setOpenSettings(true);
